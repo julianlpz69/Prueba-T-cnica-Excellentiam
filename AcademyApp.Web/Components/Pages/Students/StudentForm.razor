@@ -1,0 +1,116 @@
+﻿@page "/students/new"
+@page "/students/edit/{Id:int}"
+@inject NavigationManager Nav
+@inject IStudentService StudentSvc
+@inject ICourseService CourseSvc
+@rendermode InteractiveServer
+
+<h3>@(IsEdit ? "Edit Student" : "New Student")</h3>
+
+<EditForm Model="@Model" OnValidSubmit="Save">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    @if (!string.IsNullOrWhiteSpace(Error))
+    {
+        <div class="alert alert-danger" role="alert">
+            @(new MarkupString(Error))
+        </div>
+    }
+
+    <div class="mb-2">
+        <label>Full name</label>
+        <InputText class="form-control" @bind-Value="Model.FullName" />
+    </div>
+
+    <div class="mb-2">
+        <label>Age</label>
+        <InputNumber class="form-control" @bind-Value="Model.Age" TValue="int" />
+    </div>
+
+    <div class="mb-2">
+        <label>Status</label>
+        <InputSelect class="form-control" @bind-Value="Model.Status">
+            <option value="1">Active</option>
+            <option value="2">Inactive</option>
+        </InputSelect>
+    </div>
+
+    <div class="mb-2">
+        <label>Enrollment Date</label>
+        <InputDate class="form-control" @bind-Value="Model.EnrollmentDate" TValue="DateTime" />
+    </div>
+
+    <div class="mb-2">
+        <label>Course</label>
+        <InputSelect class="form-control" @bind-Value="Model.CourseId">
+            <option value="">-- Select a course --</option>
+            @foreach (var course in Courses)
+            {
+                <option value="@course.Id">@course.Name</option>
+            }
+        </InputSelect>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+    <button type="button" class="btn btn-secondary" @onclick="Back">Back</button>
+</EditForm>
+
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    private bool IsEdit => Id is not null;
+
+    private StudentDto Model { get; set; } = new();
+    private string? Error;
+    private List<CourseDto> Courses { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await CourseSvc.GetAsync(new(1, 100));
+        Courses = result.Items.ToList();
+
+        if (IsEdit)
+        {
+            var dto = await StudentSvc.GetByIdAsync(Id!.Value);
+            if (dto is not null) Model = dto;
+        }
+        else
+        {
+            var uri = new Uri(Nav.Uri);
+            var qs = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+            if (qs.TryGetValue("courseId", out var v) && int.TryParse(v, out var cid))
+                Model.CourseId = cid;
+
+            Model.EnrollmentDate = DateTime.UtcNow;
+        }
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            if (IsEdit)
+            {
+                await StudentSvc.UpdateAsync(Model.Id, Model);
+            }
+            else
+            {
+                var newId = await StudentSvc.CreateAsync(Model);
+                Model.Id = newId;
+            }
+
+            Nav.NavigateTo($"/students");
+        }
+        catch (FluentValidation.ValidationException vex)
+        {
+            Error = string.Join("<br/>", vex.Errors.Select(e => e.ErrorMessage));
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+    }
+
+    private void Back() => Nav.NavigateTo($"/students");
+}

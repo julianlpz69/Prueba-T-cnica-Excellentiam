@@ -1,0 +1,93 @@
+﻿@page "/courses/new"
+@page "/courses/edit/{Id:int}"
+@inject NavigationManager Nav
+@inject ICourseService CourseSvc
+@rendermode InteractiveServer
+
+<h3>@(IsEdit ? "Edit Course" : "New Course")</h3>
+
+<EditForm Model="@Model" OnValidSubmit="Save">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    @if (!string.IsNullOrWhiteSpace(Error))
+    {
+        <div class="alert alert-danger" role="alert">
+            @(new MarkupString(Error))
+        </div>
+    }
+
+    <div class="mb-2">
+        <label>Name</label>
+        <InputText class="form-control" @bind-Value="Model.Name" />
+    </div>
+
+    <div class="mb-2">
+        <label>Credits</label>
+        <InputNumber class="form-control" @bind-Value="Model.Credits" TValue="int" />
+    </div>
+
+    <div class="mb-2">
+        <label>Category</label>
+        <InputSelect class="form-control" @bind-Value="Model.Category">
+            @foreach (var cat in Enum.GetValues<CourseCategory>())
+            {
+                <option value="@((int)cat)">@cat</option>
+            }
+        </InputSelect>
+    </div>
+
+    <div class="mb-2">
+        <label>Start Date</label>
+        <InputDate class="form-control" @bind-Value="Model.StartDate" TValue="DateTime" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+    <button type="button" class="btn btn-secondary" @onclick="Back">Back</button>
+</EditForm>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    private bool IsEdit => Id is not null;
+
+    private CourseDto Model = new();
+    private string? Error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEdit)
+        {
+            var existing = await CourseSvc.GetByIdAsync(Id!.Value);
+            if (existing is not null)
+                Model = existing;
+        }
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            if (IsEdit)
+            {
+                await CourseSvc.UpdateAsync(Model.Id, Model);
+            }
+            else
+            {
+                var newId = await CourseSvc.CreateAsync(Model);
+                Model.Id = newId;
+            }
+
+            Nav.NavigateTo("/courses");
+        }
+        catch (FluentValidation.ValidationException vex)
+        {
+            Error = string.Join("<br/>", vex.Errors.Select(e => e.ErrorMessage));
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+    }
+
+    private void Back() => Nav.NavigateTo("/courses");
+}

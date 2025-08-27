@@ -1,0 +1,144 @@
+﻿@page "/courses"
+@inject ICourseService CourseSvc
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@using AcademyApp.Application.Pagination
+@rendermode InteractiveServer
+
+<h3>Courses</h3>
+
+<div class="mb-3">
+    <input placeholder="Search by name..." @bind="Search" />
+    <button class="btn btn-primary" @onclick="SearchCourses">Search</button>
+    <a class="btn btn-success" href="/courses/new">New Course</a>
+    <a class="btn btn-dark"
+       href="@($"/export/courses.xlsx?search={Search}&sortBy={SortBy}&desc={Desc}")">
+        Export to Excel
+    </a>
+</div>
+
+
+@if (Data.Count == 0)
+{
+    <p>No data found.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th @onclick="@(() => Sort("name"))">Name @(SortIcon("name"))</th>
+                <th @onclick="@(() => Sort("credits"))">Credits @(SortIcon("credits"))</th>
+                <th @onclick="@(() => Sort("category"))">Category @(SortIcon("category"))</th>
+                <th @onclick="@(() => Sort("startdate"))">Start @(SortIcon("startdate"))</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Data)
+            {
+                <tr>
+                    <td>@c.Name</td>
+                    <td>@c.Credits</td>
+                    <td>@((AcademyApp.Domain.Enums.CourseCategory)c.Category)</td>
+                    <td>@c.StartDate.ToShortDateString()</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-warning" @onclick="() => Edit(c.Id)">Edit</button>
+                        <button type="button" class="btn btn-sm btn-danger" @onclick="() => Delete(c.Id)">Delete</button>
+                        <button type="button" class="btn btn-sm btn-info" @onclick="() => Students(c.Id)">Students</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="d-flex justify-content-between">
+        <button class="btn btn-secondary" @onclick="PrevPage" disabled="@(!CanPrev)">Previous</button>
+        <span>Page @Page of @TotalPages</span>
+        <button class="btn btn-secondary" @onclick="NextPage" disabled="@(!CanNext)">Next</button>
+    </div>
+}
+
+@code {
+    private int Page = 1, PageSize = 10, Total;
+    private bool Desc;
+    private string? SortBy;
+    private string? Search;
+    private List<CourseDto> Data = new();
+
+    private string? Error;
+
+    private int TotalPages => (int)Math.Ceiling((double)Total / PageSize);
+    private bool CanPrev => Page > 1;
+    private bool CanNext => Page < TotalPages;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        try
+        {
+            var result = await CourseSvc.GetAsync(new QueryParams(Page, PageSize, SortBy, Desc, Search));
+            Data = result.Items.ToList();
+            Total = result.Total;
+            Error = null; 
+        }
+        catch (Exception ex) { Error = ex.Message; }
+    }
+
+    private async Task SearchCourses()
+    {
+        Page = 1; 
+        await Load();
+    }
+
+    private void Sort(string key)
+    {
+        if (SortBy == key) Desc = !Desc;
+        else { SortBy = key; Desc = false; }
+        _ = Load();
+    }
+
+    private string SortIcon(string key)
+    {
+        if (SortBy != key) return "";
+        return Desc ? "↓" : "↑";
+    }
+
+    private void PrevPage()
+    {
+        if (CanPrev) { Page--; _ = Load(); }
+    }
+
+    private void NextPage()
+    {
+        if (CanNext) { Page++; _ = Load(); }
+    }
+
+    private void Edit(int id)
+    {
+        Nav.NavigateTo($"/courses/edit/{id}");
+    }
+
+    private async Task Delete(int id)
+    {
+        try
+        {
+            await CourseSvc.DeleteAsync(id);
+            await Load(); 
+        }
+        catch (InvalidOperationException ex)
+        {
+            await JS.InvokeVoidAsync("alert", ex.Message);
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Failed to delete course: {ex.Message}");
+        }
+    }
+
+    private void Students(int id)
+    {
+        Nav.NavigateTo($"/students?courseId={id}");
+    }
+}
