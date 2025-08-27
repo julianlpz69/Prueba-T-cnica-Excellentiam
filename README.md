@@ -2,7 +2,7 @@
 
 Prueba Técnica en la que demostrara mis habilidades en para el puesto de desarrollador .Net
  
-**Tiempo Gastado**: 6 hours
+**Tiempo Gastado**: 6 horas
 
 <br>
 
