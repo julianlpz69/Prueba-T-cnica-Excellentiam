@@ -1,9 +1,8 @@
 # Prueba-Tecnica-Excellentiam
 
 Prueba Técnica en la que demostrara mis habilidades en para el puesto de desarrollador .Net
-
-**Estimated Time**: 6 hours  
-**Time Spent**: 5 hours
+ 
+**Tiempo Gastado**: 6 hours
 
 <br>
 
